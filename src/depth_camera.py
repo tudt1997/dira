@@ -9,7 +9,7 @@ class DepthCamera:
         self.SCALE = 10000  # ==1m
         self.MAX_UINT16 = 65536
         self.counter = 0
-	rospy.Rate(10)
+        rospy.Rate(10)
         self.area_130 = 130
         self.area_110 = 110
         self.middle_screen = (140, 180)
@@ -18,6 +18,16 @@ class DepthCamera:
         # self.path = rospkg.RosPack.get_path('team105_detectsign')
 
     def ground(self, gray_img, x, y, n, T1, T2):
+        '''
+        Remove ground
+        :param gray_img: input gray image
+        :param x: column pixel
+        :param y: row pixel
+        :param n: number of rows
+        :param T1: lower threshold
+        :param T2: upper threshold
+        :return: pixel's value (0 if it's ground, otherwise)
+        '''
         if gray_img[y][x] > T1 or gray_img[y][x] < T2:
             return 0
         if int(gray_img[y][x]) - int(gray_img[y + n][x]) >= 1:
@@ -29,6 +39,12 @@ class DepthCamera:
             return gray_img[y][x]
 
     def resize_np(self, img_np, percent):
+        '''
+        Resize image
+        :param img_np: input image
+        :param percent: percent to resize image
+        :return: image after being resized
+        '''
         h, w = img_np.shape
         w = int(w * percent)
         h = int(h * percent)
@@ -36,15 +52,26 @@ class DepthCamera:
         return resized_img
 
     def find_nearest_object(self, bbox):
+        '''
+        Find the nearest object of 1 side (left or right)
+        :param bbox: list bbox of objects
+        :return: bbox of nearest object - [x,y,w,h]
+        '''
         b_new = list(bbox[i][1] + bbox[i][3] for i in range(len(bbox)))
         index = np.argmax(np.array(b_new))
         nearest_obstacle = bbox[index]
         return nearest_obstacle
 
-    # (0,0) : No obstacle
-    # (-1, middle_point) : 2 obstacles
-    # (n,m) : left_edge, right_edge of obstacle
     def find_danger_zone(self, obstacle_left, obstacle_right):
+        '''
+        Find the danger zone after finding obstacles
+        :param obstacle_left: bbox of left obstacle
+        :param obstacle_right: bbox of right obstacle
+        :return: tuple danger zone
+        # (0,0) : No obstacle
+        # (-1, middle_point) : 2 obstacles
+        # (n,m) : left_edge, right_edge of obstacle
+        '''
         # danger zone
         danger_zone = (0, 0)  # init
         # 2 objects
@@ -83,8 +110,17 @@ class DepthCamera:
                 danger_zone = (x - self.area_130, x + w + self.area_130)
         return danger_zone
 
-
     def detect_obstacle(self, img_np, n=2, T1=15000, T2=1000, min_width=40, min_height=40):
+        '''
+        Detect obstacle
+        :param img_np: input image in gray scale
+        :param n: number of row in once iterator
+        :param T1: lower threshold
+        :param T2: upper threshold
+        :param min_width: minimum of bbox's width
+        :param min_height: minimum of bbox's height
+        :return: danger_zone
+        '''
         # resize
         gray_img = self.resize_np(img_np, 0.125)
         # cv2.imshow('src', gray_img)
